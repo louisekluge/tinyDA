@@ -237,7 +237,9 @@ def DA_estimator(chain, attribute="qoi", variable="x0", burnin=0):
 
     """
 
-    inferencedata_coarse = to_inference_data(chain, level="coarse", burnin=burnin)
+    subchain_length = chain.subchain_length
+
+    inferencedata_coarse = to_inference_data(chain, level="coarse", burnin=burnin*subchain_length)
     inferencedata_coarse_promoted = to_inference_data(
         chain, level="promoted_coarse", burnin=burnin
     )
