@@ -1391,7 +1391,6 @@ class MLDA(Proposal):
         self.chain.append(self.posterior.create_link(self.initial_parameters))
         self.accepted.append(True)
         self.is_local.append(False)
-        self.promoted.append(self.chain[-1])
 
         # set the adaptive error model as an attribute.
         self.adaptive_error_model = adaptive_error_model
