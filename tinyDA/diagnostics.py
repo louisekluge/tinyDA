@@ -233,7 +233,7 @@ def DA_estimator(chain, attribute="qoi", variable="x0", burnin=0):
     Returns
     ----------
     float
-        Outpu of the estimator computation.
+        Output of the estimator computation.
 
     """
 
