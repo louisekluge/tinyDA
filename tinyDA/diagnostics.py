@@ -213,7 +213,7 @@ def get_samples(chain, attribute="parameters", level="fine", burnin=0):
     return samples
 
 
-def DA_estimator(chain, attribute="qoi", variable="x0", burnin=0):
+def get_twolevel_inference_data(chain, attribute="qoi", variable="x0", burnin=0):
     """Computes the unbiased Monte-Carlo estimator for Delayed Acceptance (two-level),
     as derived in Lykkegaard et al. 2023.
 
@@ -223,7 +223,7 @@ def DA_estimator(chain, attribute="qoi", variable="x0", burnin=0):
         A dict as returned by tinyDA.sample, containing chain information
         and lists of tinyDA.Link instances.
     attribute : str, optional
-        Which link attribute ('parameters', 'model_output', 'qoi' or 'stats')
+        Which link attribute ('parameters', 'model_output', 'qoi')
         to extract. The default is 'parameters'.
     variable : str, optional
         Which variable of the posterior or qoi to marginalize over.
@@ -232,8 +232,8 @@ def DA_estimator(chain, attribute="qoi", variable="x0", burnin=0):
 
     Returns
     ----------
-    float
-        Output of the estimator computation.
+    dict
+        A dict of coarse, fine and promoted chains of the according attribute values
 
     """
 
@@ -253,12 +253,17 @@ def DA_estimator(chain, attribute="qoi", variable="x0", burnin=0):
         values_coarse_promoted = inferencedata_coarse_promoted.posterior
         values_fine = inferencedata_fine.posterior
         values_coarse = inferencedata_coarse.posterior
+    if attribute == "model_output":
+        values_coarse_promoted = inferencedata_coarse_promoted.model_output
+        values_fine = inferencedata_fine.model_output
+        values_coarse = inferencedata_coarse.model_output
 
-    values_difference = values_coarse_promoted - values_fine
-
-    mean_difference = az.summary(values_difference, var_names=[variable]).loc[
-        variable, "mean"
-    ]
-    mean_coarse = az.summary(values_coarse, var_names=[variable]).loc[variable, "mean"]
-    # return sum of means
-    return mean_coarse + mean_difference
+    # create the InferenceData instance.
+    inference_arrays = {
+    "chain_coarse": values_coarse,
+    "chain_fine": values_fine,
+    "promoted_coarse": values_coarse_promoted,
+    }
+    
+    # return InferenceData,
+    return inference_arrays
