@@ -207,3 +207,32 @@ def get_samples(chain, attribute="parameters", level="fine", burnin=0):
 
     # return the samples.
     return samples
+
+def get_mulilevel_inference_data(chain, level="fine", burnin=0, parameter_names=None):
+    """onverts a dict of tinyDA.Link samples as returned by tinyDA.sample() to
+    an arviz.InferenceData objects. Extracts multilevel chain structure for MLDA chains.
+
+    Parameters
+    ----------
+    chain : dict
+        A dict of MLDA samples, as returned by tinyDA.sample().
+    attribute : str, optional
+        Which link attribute ('parameters', 'model_output', 'qoi' or 'stats') 
+        to extract. The default is 'parameters'.
+    burnin : int, optional
+        The burnin length. The default is 0.
+    parameter_names : list, optional
+        List of parameter names. Default is None.
+
+    Returns
+    ----------
+    dict
+        Multilevel chain data with 'chains', 'promoted', and 'subchain_info'.
+    """
+
+    if not chain["sampler"] == "MLDA":
+        raise ValueError("Function only takes MLDA chains.")
+    
+    levels = chain["levels"]
+    n_chains = chain["n_chains"]
+    return 0
