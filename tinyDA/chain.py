@@ -557,6 +557,10 @@ class MLDAChain:
         MLDA transition kernel for the next-coarser MCMC proposals.
     subchain_length : int
         The subchain length for the next-coarser chain.
+    randomize_subchain_length : bool, optional
+        Randomizes the subchain lengths, see e.g. Liu (2009). Sample to be promoted
+        is drawn from uniform distribution, between 1 and subchain_length.
+        Default is False.
     initial_parameters : numpy.ndarray
         Starting point for the MCMC sampler
     chain : list
@@ -580,6 +584,7 @@ class MLDAChain:
         posteriors,
         proposal,
         subchain_lengths,
+        randomize_subchain_length=False,
         initial_parameters=None,
         adaptive_error_model=None,
         store_coarse_chain=True,
@@ -605,13 +610,17 @@ class MLDAChain:
         store_coarse_chain : bool, optional
             Whether to store the coarse chains. Disable if the sampler is
             taking up too much memory. Default is True.
+        randomize_subchain_length : bool, optional
+            Randomizes the subchain lengths, see e.g. Liu (2009). Sample to be promoted
+            is drawn from uniform distribution, between 1 and subchain_length.
+            Default is False.
         """
 
         # internalise the finest posterior and set the level.
         self.posterior = posteriors[-1]
         self.level = len(posteriors) - 1
 
-        # set the furrent level subchain length.
+        # set the current level subchain length.
         self.subchain_length = subchain_lengths[-1]
 
         # initialise a list, which holds the links.
@@ -638,6 +647,9 @@ class MLDAChain:
         # set whether to store the coarse chain
         self.store_coarse_chain = store_coarse_chain
 
+        # set wether to randomize subchain lengths
+        self.randomize_subchain_length = randomize_subchain_length
+
         # set the effective proposal to MLDA which runs on the next-coarser level.
         self.proposal = MLDA(
             posteriors[:-1],
@@ -646,6 +658,7 @@ class MLDAChain:
             self.initial_parameters,
             self.adaptive_error_model,
             self.store_coarse_chain,
+             self.randomize_subchain_length,
         )
 
         # set up the adaptive error model.
