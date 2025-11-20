@@ -486,7 +486,9 @@ def _sample_sequential_mlda(
         )
         chains[i].sample(iterations)
 
-    result = _get_result_mlda(chains, levels, iterations, subchain_lengths, randomize_subchain_length, store_coarse_chain)
+    result = _get_result_mlda(
+        chains, levels, iterations, subchain_lengths, randomize_subchain_length, store_coarse_chain
+    )
 
     return result
 
@@ -523,7 +525,9 @@ def _sample_parallel_mlda(
     parallel_chain.sample(iterations, force_progress_bar)
     chains = parallel_chain.chains
 
-    result = _get_result_mlda(chains, levels, iterations, subchain_lengths, randomize_subchain_length, store_coarse_chain)
+    result = _get_result_mlda(
+        chains, levels, iterations, subchain_lengths, randomize_subchain_length, store_coarse_chain
+    )
 
     return result
 
