@@ -228,6 +228,7 @@ def sample(
                 iterations,
                 n_chains,
                 initial_parameters,
+                randomize_subchain_length,
                 force_progress_bar,
             )
 
