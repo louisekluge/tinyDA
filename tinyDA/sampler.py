@@ -218,7 +218,7 @@ def sample(
         # sequential sampling.
         if not ray_is_available or n_chains == 1 or force_sequential:
             samples = _sample_sequential(
-                posteriors, proposal, iterations, n_chains, initial_parameters, randomize_subchain_length,
+                posteriors, proposal, iterations, n_chains, initial_parameters,# randomize_subchain_length,
             )
         # parallel sampling.
         else:
@@ -228,7 +228,7 @@ def sample(
                 iterations,
                 n_chains,
                 initial_parameters,
-                randomize_subchain_length,
+                #randomize_subchain_length,
                 force_progress_bar,
             )
 
