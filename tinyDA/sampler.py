@@ -218,7 +218,7 @@ def sample(
         # sequential sampling.
         if not ray_is_available or n_chains == 1 or force_sequential:
             samples = _sample_sequential(
-                posteriors, proposal, iterations, n_chains, initial_parameters,# randomize_subchain_length,
+                posteriors, proposal, iterations, n_chains, initial_parameters,
             )
         # parallel sampling.
         else:
@@ -228,7 +228,6 @@ def sample(
                 iterations,
                 n_chains,
                 initial_parameters,
-                #randomize_subchain_length,
                 force_progress_bar,
             )
 
@@ -323,14 +322,14 @@ def _sample_parallel(
     n_chains,
     initial_parameters,
     force_progress_bar,
-    #randomize_subchain_length,
+
 ):
     """Helper function for tinyDA.sample()"""
 
     print("Sampling {} chains in parallel".format(n_chains))
 
     # create a parallel sampling instance and sample.
-    chains = ParallelChain(posteriors[0], proposal, n_chains, initial_parameters, randomize_subchain_length)
+    chains = ParallelChain(posteriors[0], proposal, n_chains, initial_parameters)
     chains.sample(iterations, force_progress_bar)
 
     info = {"sampler": "MH", "n_chains": n_chains, "iterations": iterations + 1}
