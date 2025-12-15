@@ -323,7 +323,7 @@ def _sample_parallel(
     n_chains,
     initial_parameters,
     force_progress_bar,
-    randomize_subchain_length,
+    #randomize_subchain_length,
 ):
     """Helper function for tinyDA.sample()"""
 
