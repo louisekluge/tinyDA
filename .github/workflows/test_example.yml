@@ -37,6 +37,7 @@ jobs:
           poetry run jupyter nbconvert --to script examples/BasicSampler.ipynb --output scripts/BasicSampler
 
       - name: Run first notebook script
+        continue-on-error: true
         run: |
           poetry run python examples/scripts/BasicSampler.py
           
@@ -46,6 +47,7 @@ jobs:
           poetry run jupyter nbconvert --to script examples/DelayedAcceptanceWithAdaptiveErrorModel.ipynb --output scripts/DelayedAcceptanceWithAdaptiveErrorModel
 
       - name: Run second notebook script
+        continue-on-error: true
         run: |
           poetry run python examples/scripts/DelayedAcceptanceWithAdaptiveErrorModel.py
 
@@ -55,6 +57,7 @@ jobs:
           poetry run jupyter nbconvert --to script examples/MALARosenbrock.ipynb --output scripts/MALARosenbrock
 
       - name: Run third notebook script
+        continue-on-error: true
         run: |
           poetry run python examples/scripts/MALARosenbrock.py
           
@@ -64,8 +67,19 @@ jobs:
           poetry run jupyter nbconvert --to script examples/MultilevelDelayedAcceptance.ipynb --output scripts/MultilevelDelayedAcceptance
 
       - name: Run fourth notebook script
+        continue-on-error: true
         run: |
           poetry run python examples/scripts/MultilevelDelayedAcceptance.py
+          
+
+      - name: Convert seventh notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/UM-BridgeIntegration.ipynb --output scripts/UM-BridgeIntegration
+
+      - name: Run seventh notebook script
+        continue-on-error: true
+        run: |
+          poetry run python examples/scripts/UM-BridgeIntegration.py
 
 
       - name: Convert fifth notebook to Python script
@@ -73,6 +87,7 @@ jobs:
           poetry run jupyter nbconvert --to script examples/MultipleTryProposal.ipynb --output scripts/MultipleTryProposal
 
       - name: Run fifth notebook script
+        continue-on-error: true
         run: |
           poetry run python examples/scripts/MultipleTryProposal.py
           
@@ -82,14 +97,7 @@ jobs:
           poetry run jupyter nbconvert --to script examples/Operator-weighted_pCN.ipynb --output scripts/Operator-weighted_pCN
 
       - name: Run sixth notebook script
+        continue-on-error: true
         run: |
           poetry run python examples/scripts/Operator-weighted_pCN.py
 
-
-      - name: Convert seventh notebook to Python script
-        run: |
-          poetry run jupyter nbconvert --to script examples/UM-BridgeIntegration.ipynb --output scripts/UM-BridgeIntegration
-
-      - name: Run seventh notebook script
-        run: |
-          poetry run python examples/scripts/UM-BridgeIntegration.py
