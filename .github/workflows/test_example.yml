@@ -29,9 +29,12 @@ jobs:
         run: |
           poetry install --no-interaction --no-root
 
+      - name: Make output directory
+        run: mkdir -p examples/scripts
+
       - name: Convert notebook to Python script
         run: |
-          poetry run jupyter nbconvert --to script examples/BasicSampler.ipynb --output examples/scripts/BasicSampler.py.py
+          poetry run jupyter nbconvert --to script examples/BasicSampler.ipynb --output examples/scripts/BasicSampler
 
       - name: Run notebook script
         run: |
