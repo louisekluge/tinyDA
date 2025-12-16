@@ -31,7 +31,7 @@ jobs:
 
       - name: Convert notebook to Python script
         run: |
-          poetry run jupyter nbconvert --to script examples/BasicSampler.ipynb --output examples/scripts/BasicSampler.py
+          poetry run jupyter nbconvert --to script examples/BasicSampler.ipynb --output examples/scripts/BasicSampler.py.py
 
       - name: Run notebook script
         run: |
