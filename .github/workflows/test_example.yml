@@ -1,4 +1,4 @@
-name: CI
+name: CI test all notebooks
 
 on:
   push:
@@ -32,11 +32,11 @@ jobs:
       - name: Make output directory
         run: mkdir -p examples/scripts
 
-      - name: Convert notebook to Python script
+      - name: Convert first notebook to Python script
         run: |
           poetry run jupyter nbconvert --to script examples/BasicSampler.ipynb --output scripts/BasicSampler
 
-      - name: Run notebook script
+      - name: Run first notebook script
         run: |
           poetry run python examples/scripts/BasicSampler.py
           
@@ -48,3 +48,48 @@ jobs:
       - name: Run second notebook script
         run: |
           poetry run python examples/scripts/DelayedAcceptanceWithAdaptiveErrorModel.py
+
+
+      - name: Convert third notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/MALARosenbrock.ipynb --output scripts/MALARosenbrock
+
+      - name: Run third notebook script
+        run: |
+          poetry run python examples/scripts/MALARosenbrock.py
+          
+
+      - name: Convert fourth notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/MultilevelDelayedAcceptance.ipynb --output scripts/MultilevelDelayedAcceptance
+
+      - name: Run fourth notebook script
+        run: |
+          poetry run python examples/scripts/MultilevelDelayedAcceptance.py
+
+
+      - name: Convert fifth notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/MultipleTryProposal.ipynb --output scripts/MultipleTryProposal
+
+      - name: Run fifth notebook script
+        run: |
+          poetry run python examples/scripts/MultipleTryProposal.py
+          
+
+      - name: Convert sixth notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/Operator-weighted_pCN.ipynb --output scripts/Operator-weighted_pCN
+
+      - name: Run sixth notebook script
+        run: |
+          poetry run python examples/scripts/Operator-weighted_pCN.py
+
+
+      - name: Convert seventh notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/UM-BridgeIntegration.ipynb --output scripts/UM-BridgeIntegration
+
+      - name: Run seventh notebook script
+        run: |
+          poetry run python examples/scripts/UM-BridgeIntegration.py
