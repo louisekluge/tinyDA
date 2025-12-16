@@ -47,4 +47,4 @@ jobs:
 
       - name: Run second notebook script
         run: |
-          poetry run python scripts/DelayedAcceptanceWithAdaptiveErrorModel.py
+          poetry run python examples/scripts/DelayedAcceptanceWithAdaptiveErrorModel.py
