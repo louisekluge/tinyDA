@@ -39,3 +39,12 @@ jobs:
       - name: Run notebook script
         run: |
           poetry run python examples/scripts/BasicSampler.py
+          
+
+      - name: Convert second notebook to Python script
+        run: |
+          poetry run jupyter nbconvert --to script examples/DelayedAcceptanceWithAdaptiveErrorModel.ipynb --output scripts/DelayedAcceptanceWithAdaptiveErrorModel
+
+      - name: Run second notebook script
+        run: |
+          poetry run python scripts/DelayedAcceptanceWithAdaptiveErrorModel.py
