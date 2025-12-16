@@ -27,7 +27,7 @@ jobs:
 
       - name: Install dependencies (from poetry.lock)
         run: |
-          poetry install --no-interaction --no-root
+          poetry install --no-interaction
 
       - name: Make output directory
         run: mkdir -p examples/scripts
