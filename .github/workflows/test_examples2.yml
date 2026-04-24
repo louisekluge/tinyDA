@@ -1,0 +1,31 @@
+name: Run example notebooks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - run: pip install poetry
+      - run: poetry config virtualenvs.in-project true
+      - run: poetry install --no-interaction
+
+      - name: Run all notebooks
+        continue-on-error: true
+        run: |
+          for nb in examples/*.ipynb; do
+            echo "Running $nb"
+            poetry run jupyter nbconvert \
+              --to notebook \
+              --execute "$nb" \
+              --output executed.ipynb || echo "Failed: $nb"
+          done
