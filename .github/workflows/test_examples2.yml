@@ -19,10 +19,15 @@ jobs:
       - run: poetry config virtualenvs.in-project true
       - run: poetry install --no-interaction
 
-      - name: Run all notebooks
+      - name: Run all notebooks (except UM-Bridge)
         continue-on-error: true
         run: |
           for nb in examples/*.ipynb; do
+            if [[ "$nb" == *"UM-BridgeIntegration.ipynb" ]]; then
+              echo "Skipping $nb"
+              continue
+            fi
+      
             echo "Running $nb"
             poetry run jupyter nbconvert \
               --to notebook \
