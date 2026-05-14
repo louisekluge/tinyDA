@@ -274,7 +274,7 @@ def test_sample_for_DAchain(iterations, progressbar):
     assert len(da_chain.accepted_coarse) == (iterations * 3) + 1
     assert len(da_chain.is_coarse) == (iterations * 3) + 1
     assert len(da_chain.promoted_coarse) == iterations + 1
-    #assert len(da_chain.subchain_lengths) == ? subchain_lengths is a random value
+    assert da_chain.subchain_length == 2
     assert len(da_chain.chain_fine) == iterations + 1
     assert len(da_chain.accepted_fine) == iterations + 1
     
