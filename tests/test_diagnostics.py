@@ -1,4 +1,3 @@
-# poetry run pytest test_diagnostics.py
 import pytest
 
 import numpy as np
