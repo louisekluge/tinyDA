@@ -128,6 +128,8 @@ chain = tda.sample(my_posteriors, my_proposal, iterations=args.iterations,
                    n_chains=1, initial_parameters=MAP,
                    subchain_length=10, randomize_subchain_length=True)
 mlinf = tda.get_multilevel_inference_data(chain, attribute='qoi', burnin=args.iterations // 5)
+
 np.savez(f'qoi_run{args.run_id}.npz',
+         MAP=MAP, data_l2=data_l2,
          **{k: np.asarray(v) for k, v in mlinf['chains'].items()},
          **{f'prom_{k}': np.asarray(v) for k, v in mlinf['promoted'].items()})
