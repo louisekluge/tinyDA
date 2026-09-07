@@ -118,11 +118,13 @@ MAP = tda.get_MAP(my_posterior_l2)
 np.random.seed(4242 + args.run_id)      # per-run: only the MCMC randomness differs
 
 # set up proposal
-dream_m0 = 1000
-dream_delta = 1
-dream_Z_method = 'lhs'
-dream_adaptive = True
-my_proposal = tda.DREAMZ(M0=dream_m0, delta=dream_delta, Z_method=dream_Z_method, adaptive=dream_adaptive)
+#dream_m0 = 1000
+#dream_delta = 1
+#dream_Z_method = 'lhs'
+#dream_adaptive = True
+#my_proposal = tda.DREAMZ(M0=dream_m0, delta=dream_delta, Z_method=dream_Z_method, adaptive=dream_adaptive)
+am_cov = 0.01 * np.eye(6)     # modest initial scale; adaptation takes over after t0
+my_proposal = tda.AdaptiveMetropolis(C0=am_cov, t0=100, sd=None, epsilon=1e-6)
 
 chain = tda.sample(my_posteriors, my_proposal, iterations=args.iterations,
                    n_chains=1, initial_parameters=MAP,
