@@ -1,4 +1,4 @@
-import argparse, numpy as np
+import gc, argparse, numpy as np
 import tinyDA as tda
 import scipy.stats as stats
 
@@ -125,6 +125,8 @@ np.random.seed(4242 + args.run_id)      # per-run: only the MCMC randomness diff
 #my_proposal = tda.DREAMZ(M0=dream_m0, delta=dream_delta, Z_method=dream_Z_method, adaptive=dream_adaptive)
 am_cov = 0.01 * np.eye(6)     # modest initial scale; adaptation takes over after t0
 my_proposal = tda.AdaptiveMetropolis(C0=am_cov, t0=100, sd=None, epsilon=1e-6)
+
+gc.disable()
 
 chain = tda.sample(my_posteriors, my_proposal, iterations=args.iterations,
                    n_chains=1, initial_parameters=MAP,
