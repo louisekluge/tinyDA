@@ -14,6 +14,7 @@ Usage:
 import argparse
 import json
 import time
+import os
 
 import numpy as np
 import scipy.stats as stats
@@ -45,6 +46,13 @@ args = p.parse_args()
 
 burnin = args.burnin if args.burnin is not None else args.iterations // 5
 
+import os
+_outdir = os.path.expanduser(args.outdir)
+os.makedirs(_outdir, exist_ok=True)
+_probe = os.path.join(_outdir, f".probe_{args.run_id}")
+with open(_probe, "w") as fh:
+    fh.write("ok")
+os.remove(_probe)
 
 # --------------------------------------------------------------------------
 # Problem setup -- FIXED seed, identical for every repetition
@@ -231,7 +239,9 @@ for k, v in rates.items():
 for k, v in ess.items():
     payload[f"ess__{k}"] = np.asarray(v)
 
-outfile = f"{args.outdir.rstrip('/')}/diag_run{args.run_id:03d}.npz"
+outdir = os.path.expanduser(args.outdir)
+os.makedirs(outdir, exist_ok=True)
+outfile = os.path.join(outdir, f"diag_run{args.run_id:03d}.npz")
 np.savez(outfile, **payload)
 
 print(f"\nrun {args.run_id}: {runtime/60:.1f} min for {args.iterations} iterations")
