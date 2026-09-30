@@ -84,7 +84,7 @@ fig, axes = plt.subplots(2, 2, figsize=(13, 9))
 ax = axes[0, 0]
 if acc:
     names = [k[len("acc__"):].split(".")[-1] for k in acc]
-    ax.boxplot(list(acc.values()), labels=names, showmeans=True)
+    ax.boxplot(list(acc.values()), tick_labels=names, showmeans=True)
     for i, v in enumerate(acc.values(), start=1):
         ax.plot(np.full_like(v, i) + np.random.uniform(-0.06, 0.06, len(v)),
                 v, ".", color="tab:blue", alpha=0.6)
@@ -95,25 +95,25 @@ ax.grid(alpha=0.3)
 
 # (2) ESS per parameter, finest level
 ax = axes[0, 1]
-fine = [k for k in ess if "fine" in k] or [k for k in ess
-                                           if f"level{meta['n_levels']-1}" in k]
-if fine:
-    m = ess[fine[0]]
+lvl = meta["n_levels"] - 1
+fine_keys = sorted(k for k in ess if f"level{lvl}_" in k)
+if fine_keys:
+    m = np.hstack([ess[k] for k in fine_keys])          # (n_runs, n_params)
     ax.boxplot([m[:, j] for j in range(m.shape[1])],
-               labels=[rf"$\theta_{{{j}}}$" for j in range(m.shape[1])],
-               showmeans=True)
-    ax.set_title(f"ESS per parameter -- {fine[0][len('ess__'):]}")
+           tick_labels=[k.split("_")[-1] for k in fine_keys], showmeans=True)
+    ax.set_title(f"ESS per parameter -- level {lvl}")
 else:
+    m = None
     ax.set_title("ESS per parameter (no fine-level data)")
 ax.set_ylabel("ESS")
 ax.grid(alpha=0.3)
 
 # (3) ESS vs acceptance rate
 ax = axes[1, 0]
-if acc and fine:
+if acc and m is not None:
     acc_fine = [v for k, v in acc.items() if "fine" in k.lower()]
     a = acc_fine[0] if acc_fine else list(acc.values())[-1]
-    e = ess[fine[0]].min(axis=1)
+    e = m.min(axis=1)
     n = min(len(a), len(e))
     ax.scatter(a[:n], e[:n], c=runtimes[:n] / 60, cmap="viridis")
     cb = plt.colorbar(ax.collections[0], ax=ax)
@@ -125,8 +125,8 @@ ax.grid(alpha=0.3)
 
 # (4) ESS per minute
 ax = axes[1, 1]
-if fine:
-    eff = ess[fine[0]].min(axis=1) / (runtimes / 60)
+if m is not None:
+    eff = m.min(axis=1) / (runtimes / 60)
     ax.hist(eff, bins=max(5, len(runs) // 2), color="tab:green", alpha=0.8)
     ax.set_xlabel("min ESS per minute")
     ax.set_ylabel("repetitions")

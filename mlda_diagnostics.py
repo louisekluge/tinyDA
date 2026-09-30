@@ -22,6 +22,9 @@ from scipy.integrate import solve_ivp
 import arviz as az
 import tinyDA as tda
 
+import warnings
+warnings.filterwarnings("ignore", message=".*qoi group is not defined.*")
+
 
 # --------------------------------------------------------------------------
 # CLI
@@ -150,43 +153,36 @@ chain = tda.sample(
 )
 runtime = time.time() - t_start
 
-
 # --------------------------------------------------------------------------
 # Diagnostics
 # --------------------------------------------------------------------------
 
-def _walk(obj):
-    """Yield every chain-like object inside whatever sample() returned."""
-    if isinstance(obj, dict):
-        for v in obj.values():
-            yield from _walk(v)
-    elif isinstance(obj, (list, tuple)):
-        for v in obj:
-            yield from _walk(v)
-    else:
-        yield obj
+def _as_array(links):
+    """Stack the parameter vectors out of a list of tinyDA Link objects."""
+    return np.array([l.parameters for l in links], dtype=float)
 
+def acceptance_rates(chain, n_levels, burnin=0):
+    """Acceptance rate per level, post burn-in.
 
-def acceptance_rates(chain):
-    """Mean acceptance rate per level, found by introspection.
-
-    tinyDA stores acceptance flags as lists of bools on the chain objects
-    (e.g. accepted_fine / accepted_coarse). Attribute names differ between
-    chain types, so collect anything that looks like one.
+    sample() returns arrays, not chain objects, so acceptance is recovered
+    from state changes. burnin is given in fine-level iterations and scaled
+    to each level by the ratio of chain lengths.
     """
     rates = {}
-    for obj in _walk(chain):
-        for name in dir(obj):
-            if not name.startswith("accepted"):
-                continue
-            try:
-                flags = getattr(obj, name)
-            except Exception:
-                continue
-            if isinstance(flags, (list, np.ndarray)) and len(flags) > 0:
-                arr = np.asarray(flags, dtype=float)
-                if arr.ndim == 1:
-                    rates[f"{type(obj).__name__}.{name}"] = float(arr.mean())
+    finest = _as_array(chain[f"chain_l{n_levels-1}_0"])
+    n_fine = finest.shape[0]
+
+    for level in range(n_levels):
+        key = f"chain_l{level}_0"
+        if key not in chain:
+            continue
+        samples = _as_array(chain[key])
+        cut = int(round(burnin * samples.shape[0] / n_fine))
+        post = samples[cut:]
+        if post.shape[0] < 2:
+            continue
+        moved = np.any(np.diff(post, axis=0) != 0, axis=1)
+        rates[f"level{level}"] = float(moved.mean())
     return rates
 
 
@@ -208,7 +204,7 @@ def ess_per_level(chain, burnin):
     return out
 
 
-rates = acceptance_rates(chain)
+rates = acceptance_rates(chain, n_levels, burnin=burnin)
 ess = ess_per_level(chain, burnin)
 
 if not rates:
