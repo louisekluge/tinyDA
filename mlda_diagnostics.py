@@ -28,6 +28,24 @@ warnings.filterwarnings("ignore", message=".*qoi group is not defined.*")
 
 
 # --------------------------------------------------------------------------
+# Sweep configurations
+# --------------------------------------------------------------------------
+
+CONFIGS = [
+    dict(name="base",         levels=[0,1,2], nsub=10, rand=True,  prop="am", iters=20000, aem=None),
+    dict(name="nsub1",        levels=[0,1,2], nsub=1,  rand=True,  prop="am", iters=20000, aem=None),
+    dict(name="nsub2",        levels=[0,1,2], nsub=2,  rand=True,  prop="am", iters=20000, aem=None),
+    dict(name="nsub5",        levels=[0,1,2], nsub=5,  rand=True,  prop="am", iters=20000, aem=None),
+    dict(name="nsub20",       levels=[0,1,2], nsub=20, rand=True,  prop="am", iters=8000,  aem=None),
+    dict(name="fixed_nsub",   levels=[0,1,2], nsub=10, rand=False, prop="am", iters=20000, aem=None),
+    dict(name="two_level_hi", levels=[1,2],   nsub=10, rand=True,  prop="am", iters=20000, aem=None),
+    dict(name="two_level_lo", levels=[0,2],   nsub=10, rand=True,  prop="am", iters=20000, aem=None),
+    dict(name="single",       levels=[2],     nsub=0,  rand=False, prop="am", iters=20000, aem=None),
+    dict(name="aem_si",       levels=[0,1,2], nsub=10, rand=True,  prop="am", iters=20000, aem="state-independent"),
+]
+N_REPS = 6
+
+# --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
 
