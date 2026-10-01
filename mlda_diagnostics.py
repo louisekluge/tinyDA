@@ -191,20 +191,21 @@ def _as_array(links):
     """Stack the parameter vectors out of a list of tinyDA Link objects."""
     return np.array([l.parameters for l in links], dtype=float)
 
-def acceptance_rates(chain, n_levels, burnin=0):
-    """Acceptance rate per level, post burn-in.
+def _chain_key(chain, level):
+    """Chain key for a level; single-level runs use 'chain_0'."""
+    for k in (f"chain_l{level}_0", "chain_0"):
+        if k in chain:
+            return k
+    return None
 
-    sample() returns arrays, not chain objects, so acceptance is recovered
-    from state changes. burnin is given in fine-level iterations and scaled
-    to each level by the ratio of chain lengths.
-    """
+def acceptance_rates(chain, n_levels, burnin=0):
     rates = {}
-    finest = _as_array(chain[f"chain_l{n_levels-1}_0"])
+    finest = _as_array(chain[_chain_key(chain, n_levels - 1)])
     n_fine = finest.shape[0]
 
     for level in range(n_levels):
-        key = f"chain_l{level}_0"
-        if key not in chain:
+        key = _chain_key(chain, level)
+        if key is None:
             continue
         samples = _as_array(chain[key])
         cut = int(round(burnin * samples.shape[0] / n_fine))
@@ -219,7 +220,8 @@ def acceptance_rates(chain, n_levels, burnin=0):
 def ess_per_level(chain, burnin):
     """ESS per parameter, per level, via tinyDA's arviz bridge."""
     out = {}
-    for level in list(range(n_levels)) + ["fine", "coarse"]:
+    levels = list(range(n_levels)) if n_levels > 1 else [0]
+    for level in levels:
         try:
             idata = tda.to_inference_data(chain, level=level, burnin=burnin)
         except Exception:
@@ -260,7 +262,7 @@ for k, v in ess.items():
 outfile = os.path.join(_outdir, f"diag_{cfg['name']}_rep{rep:02d}.npz")
 np.savez(outfile, **payload)
 
-print(f"\nrun {args.run_id}: {runtime/60:.1f} min for {args.iterations} iterations")
+print(f"\n{cfg['name']} rep {rep}: {runtime/60:.1f} min for {iterations} iterations")
 for k, v in sorted(rates.items()):
     print(f"  acceptance  {k:45s} {v:.3f}")
 for k, v in sorted(ess.items()):

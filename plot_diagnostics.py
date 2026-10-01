@@ -22,7 +22,7 @@ p.add_argument("--out", default="mlda_diagnostics.png")
 p.add_argument("--csv", default="mlda_diagnostics.csv")
 args = p.parse_args()
 
-files = sorted(glob.glob(os.path.join(os.path.expanduser(args.indir), "diag_run*.npz")))
+files = sorted(glob.glob(os.path.join(os.path.expanduser(args.indir), "diag_*.npz")))
 if not files:
     raise FileNotFoundError(f"no diag_run*.npz in {args.indir}")
 runs = [np.load(f, allow_pickle=True) for f in files]
