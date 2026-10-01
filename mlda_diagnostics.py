@@ -41,7 +41,7 @@ CONFIGS = [
     dict(name="two_level_hi", levels=[1,2],   nsub=10, rand=True,  prop="am", iters=20000, aem=None),
     dict(name="two_level_lo", levels=[0,2],   nsub=10, rand=True,  prop="am", iters=20000, aem=None),
     dict(name="single",       levels=[2],     nsub=0,  rand=False, prop="am", iters=20000, aem=None),
-    dict(name="aem_si",       levels=[0,1,2], nsub=10, rand=True,  prop="am", iters=20000, aem="state-independent"),
+    #dict(name="aem_si",       levels=[0,1,2], nsub=10, rand=True,  prop="am", iters=20000, aem="state-independent"),
 ]
 N_REPS = 6
 
