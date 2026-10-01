@@ -41,7 +41,6 @@ CONFIGS = [
     dict(name="two_level_hi", levels=[1,2],   nsub=10, rand=True,  prop="am", iters=20000, aem=None),
     dict(name="two_level_lo", levels=[0,2],   nsub=10, rand=True,  prop="am", iters=20000, aem=None),
     dict(name="single",       levels=[2],     nsub=0,  rand=False, prop="am", iters=20000, aem=None),
-    #dict(name="aem_si",       levels=[0,1,2], nsub=10, rand=True,  prop="am", iters=20000, aem="state-independent"),
 ]
 N_REPS = 6
 
@@ -142,8 +141,8 @@ my_prior = stats.multivariate_normal(mean_prior, cov_prior)
 
 # likelihoods and posteriors
 my_loglike_l2 = tda.GaussianLogLike(data_l2, sigma**2 * np.eye(data_l2.size))
-my_loglike_l1 = tda.AdaptiveGaussianLogLike(data_l1, sigma**2 * np.eye(data_l1.size))
-my_loglike_l0 = tda.AdaptiveGaussianLogLike(data_l0, sigma**2 * np.eye(data_l0.size))
+my_loglike_l1 = tda.GaussianLogLike(data_l1, sigma**2 * np.eye(data_l1.size))
+my_loglike_l0 = tda.GaussianLogLike(data_l0, sigma**2 * np.eye(data_l0.size))
 
 all_posteriors = [
     tda.Posterior(my_prior, my_loglike_l0, my_model_l0),
@@ -195,20 +194,31 @@ def _as_array(links):
     """Stack the parameter vectors out of a list of tinyDA Link objects."""
     return np.array([l.parameters for l in links], dtype=float)
 
-def _chain_key(chain, level):
-    """Chain key for a level; single-level runs use 'chain_0'."""
-    for k in (f"chain_l{level}_0", "chain_0"):
-        if k in chain:
-            return k
-    return None
+def _level_args(chain, n_levels):
+    """(label, level-argument) pairs matching this chain's sampler type."""
+    sampler = chain["sampler"]
+    if sampler == "MH":
+        return [("level0", "fine")]          # level is ignored for MH
+    if sampler == "DA":
+        return [("level0", "coarse"), ("level1", "fine")]
+    return [(f"level{i}", i) for i in range(n_levels)]
+
+
+def _chain_key(chain, level, n_levels):
+    sampler = chain["sampler"]
+    if sampler == "MH":
+        return "chain_0"
+    if sampler == "DA":
+        return "chain_coarse_0" if level == 0 else "chain_fine_0"
+    return f"chain_l{level}_0"
 
 def acceptance_rates(chain, n_levels, burnin=0):
     rates = {}
-    finest = _as_array(chain[_chain_key(chain, n_levels - 1)])
+    finest = _as_array(chain[_chain_key(chain, n_levels - 1, n_levels)])
     n_fine = finest.shape[0]
 
     for level in range(n_levels):
-        key = _chain_key(chain, level)
+        key = _chain_key(chain, level, n_levels)
         if key is None:
             continue
         samples = _as_array(chain[key])
@@ -221,27 +231,29 @@ def acceptance_rates(chain, n_levels, burnin=0):
     return rates
 
 
-def ess_per_level(chain, burnin):
-    """ESS per parameter, per level, via tinyDA's arviz bridge."""
+def ess_per_level(chain, burnin, n_levels):
     out = {}
-    levels = list(range(n_levels)) if n_levels > 1 else [0]
-    for level in levels:
+    if n_levels == 1:
+        levels = [("level0", 0)]
+    elif n_levels == 2:
+        levels = [("level0", "coarse"), ("level1", "fine")]
+    else:
+        levels = [(f"level{i}", i) for i in range(n_levels)]
+    for label, arg in levels:
         try:
-            idata = tda.to_inference_data(chain, level=level, burnin=burnin)
-        except Exception:
-            continue
-        try:
+            idata = tda.to_inference_data(chain, level=arg, burnin=burnin)
             ess = az.ess(idata)
-        except Exception:
+        except Exception as e:
+            print(f"  ESS failed for {label} (level={arg!r}): {e}")
             continue
         for var in ess.data_vars:
-            vals = np.atleast_1d(np.asarray(ess[var].values, dtype=float)).ravel()
-            out[f"level{level}_{var}"] = vals
+            out[f"{label}_{var}"] = np.atleast_1d(
+                np.asarray(ess[var].values, dtype=float)).ravel()
     return out
 
 
 rates = acceptance_rates(chain, n_levels, burnin=burnin)
-ess = ess_per_level(chain, burnin)
+ess = ess_per_level(chain, burnin, n_levels)
 
 if not rates:
     print("WARNING: no acceptance-rate attributes found; inspect the chain object.")
