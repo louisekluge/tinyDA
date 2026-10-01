@@ -31,6 +31,8 @@ warnings.filterwarnings("ignore", message=".*qoi group is not defined.*")
 # CLI
 # --------------------------------------------------------------------------
 
+_DEFAULT_OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+
 p = argparse.ArgumentParser()
 p.add_argument("--run-id", type=int, required=True,
                help="repetition index; seeds the sampler only")
@@ -41,12 +43,12 @@ p.add_argument("--subchain-length", type=int, default=10)
 p.add_argument("--randomize-subchain-length", action="store_true", default=True)
 p.add_argument("--proposal", choices=["am", "dreamz"], default="am",
                help="coarsest-level proposal; am avoids the DREAMZ archive slowdown")
-p.add_argument("--outdir", default=".")
+p.add_argument("--outdir", default=_DEFAULT_OUTDIR)
 args = p.parse_args()
 
 burnin = args.burnin if args.burnin is not None else args.iterations // 5
 
-import os
+# fail fast: verify the output path works before spending an hour sampling
 _outdir = os.path.expanduser(args.outdir)
 os.makedirs(_outdir, exist_ok=True)
 _probe = os.path.join(_outdir, f".probe_{args.run_id}")
