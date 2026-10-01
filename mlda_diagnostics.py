@@ -52,24 +52,28 @@ N_REPS = 6
 _DEFAULT_OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 
 p = argparse.ArgumentParser()
-p.add_argument("--run-id", type=int, required=True,
-               help="repetition index; seeds the sampler only")
-p.add_argument("--iterations", type=int, default=20000)
-p.add_argument("--burnin", type=int, default=None,
-               help="default: iterations // 5")
-p.add_argument("--subchain-length", type=int, default=10)
-p.add_argument("--randomize-subchain-length", action="store_true", default=True)
-p.add_argument("--proposal", choices=["am", "dreamz"], default="am",
-               help="coarsest-level proposal; am avoids the DREAMZ archive slowdown")
+p.add_argument("--task-id", type=int, required=True,
+               help="Slurm array index; maps to config x repetition")
+p.add_argument("--iterations", type=int, default=None,
+               help="override the config's iteration count (for quick tests)")
 p.add_argument("--outdir", default=_DEFAULT_OUTDIR)
 args = p.parse_args()
 
-burnin = args.burnin if args.burnin is not None else args.iterations // 5
+cfg_idx, rep = divmod(args.task_id, N_REPS)
+if cfg_idx >= len(CONFIGS):
+    raise SystemExit(f"task-id {args.task_id} exceeds {len(CONFIGS)*N_REPS-1}")
+cfg = CONFIGS[cfg_idx]
 
-# fail fast: verify the output path works before spending an hour sampling
+iterations = args.iterations if args.iterations is not None else cfg["iters"]
+burnin = iterations // 5
+n_levels = len(cfg["levels"])
+
+print(f"config={cfg['name']}  rep={rep}  levels={cfg['levels']}  "
+      f"nsub={cfg['nsub']}  iters={iterations}")
+
 _outdir = os.path.expanduser(args.outdir)
 os.makedirs(_outdir, exist_ok=True)
-_probe = os.path.join(_outdir, f".probe_{args.run_id}")
+_probe = os.path.join(_outdir, f".probe_{args.task_id}")
 with open(_probe, "w") as fh:
     fh.write("ok")
 os.remove(_probe)
@@ -138,47 +142,45 @@ my_prior = stats.multivariate_normal(mean_prior, cov_prior)
 
 # likelihoods and posteriors
 my_loglike_l2 = tda.GaussianLogLike(data_l2, sigma**2 * np.eye(data_l2.size))
-my_loglike_l1 = tda.GaussianLogLike(data_l1, sigma**2 * np.eye(data_l1.size))
-my_loglike_l0 = tda.GaussianLogLike(data_l0, sigma**2 * np.eye(data_l0.size))
+my_loglike_l1 = tda.AdaptiveGaussianLogLike(data_l1, sigma**2 * np.eye(data_l1.size))
+my_loglike_l0 = tda.AdaptiveGaussianLogLike(data_l0, sigma**2 * np.eye(data_l0.size))
 
-my_posteriors = [
+all_posteriors = [
     tda.Posterior(my_prior, my_loglike_l0, my_model_l0),
     tda.Posterior(my_prior, my_loglike_l1, my_model_l1),
     tda.Posterior(my_prior, my_loglike_l2, my_model_l2),
 ]
-n_levels = len(my_posteriors)
+my_posteriors = [all_posteriors[i] for i in cfg["levels"]]
 
-MAP = tda.get_MAP(my_posteriors[-1])
+MAP = tda.get_MAP(all_posteriors[-1])
 
 
 # --------------------------------------------------------------------------
 # Per-repetition randomness
 # --------------------------------------------------------------------------
+np.random.seed(4242 + rep)
 
-np.random.seed(4242 + args.run_id)
-
-if args.proposal == "am":
-    my_proposal = tda.AdaptiveMetropolis(
-        C0=0.01 * np.eye(6), t0=100, sd=None, epsilon=1e-6
-    )
+if cfg["prop"] == "am":
+    my_proposal = tda.AdaptiveMetropolis(C0=0.01*np.eye(6), t0=100, sd=None, epsilon=1e-6)
 else:
     my_proposal = tda.DREAMZ(M0=1000, delta=1, Z_method="lhs", adaptive=True)
-
 
 # --------------------------------------------------------------------------
 # Sample
 # --------------------------------------------------------------------------
 
 t_start = time.time()
-chain = tda.sample(
-    my_posteriors,
-    my_proposal,
-    iterations=args.iterations,
-    n_chains=1,
-    initial_parameters=MAP,
-    subchain_length=args.subchain_length,
-    randomize_subchain_length=args.randomize_subchain_length,
-)
+if n_levels == 1:
+    chain = tda.sample(my_posteriors[0], my_proposal,
+                       iterations=iterations, n_chains=1,
+                       initial_parameters=MAP)
+else:
+    kwargs = dict(iterations=iterations, n_chains=1, initial_parameters=MAP,
+                  subchain_length=cfg["nsub"],
+                  randomize_subchain_length=cfg["rand"])
+    if cfg["aem"] is not None:
+        kwargs["adaptive_error_model"] = cfg["aem"]
+    chain = tda.sample(my_posteriors, my_proposal, **kwargs)
 runtime = time.time() - t_start
 
 # --------------------------------------------------------------------------
@@ -241,17 +243,13 @@ if not ess:
     print("WARNING: to_inference_data produced nothing; check the level argument.")
 
 payload = {
-    "run_id": np.array(args.run_id),
-    "iterations": np.array(args.iterations),
-    "burnin": np.array(burnin),
-    "subchain_length": np.array(args.subchain_length),
     "runtime_seconds": np.array(runtime),
     "MAP": MAP,
     "meta": np.array(json.dumps({
-        "proposal": args.proposal,
-        "randomize_subchain_length": bool(args.randomize_subchain_length),
-        "n_levels": n_levels,
-        "acceptance": rates,
+        "config": cfg["name"], "rep": rep, "levels": cfg["levels"],
+        "nsub": cfg["nsub"], "randomize": cfg["rand"], "proposal": cfg["prop"],
+        "aem": cfg["aem"], "iterations": iterations, "burnin": burnin,
+        "n_levels": n_levels, "acceptance": rates,
     })),
 }
 for k, v in rates.items():
@@ -259,9 +257,7 @@ for k, v in rates.items():
 for k, v in ess.items():
     payload[f"ess__{k}"] = np.asarray(v)
 
-outdir = os.path.expanduser(args.outdir)
-os.makedirs(outdir, exist_ok=True)
-outfile = os.path.join(outdir, f"diag_run{args.run_id:03d}.npz")
+outfile = os.path.join(_outdir, f"diag_{cfg['name']}_rep{rep:02d}.npz")
 np.savez(outfile, **payload)
 
 print(f"\nrun {args.run_id}: {runtime/60:.1f} min for {args.iterations} iterations")
