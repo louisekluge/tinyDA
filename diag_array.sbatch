@@ -4,7 +4,7 @@
 #SBATCH --time=06:00:00
 #SBATCH --mem-per-cpu=3000
 #SBATCH --cpus-per-task=1
-#SBATCH --array=0-59
+#SBATCH --array=0-53
 #SBATCH --output=/home/ka/ka_scc/ka_br6867/tinyDA/results/sweep_%a.out
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=louise.kluge@posteo.net

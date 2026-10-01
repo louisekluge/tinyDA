@@ -169,6 +169,8 @@ else:
 # Sample
 # --------------------------------------------------------------------------
 
+print(vars(my_loglike_l0))
+
 t_start = time.time()
 if n_levels == 1:
     chain = tda.sample(my_posteriors[0], my_proposal,
@@ -182,6 +184,8 @@ else:
         kwargs["adaptive_error_model"] = cfg["aem"]
     chain = tda.sample(my_posteriors, my_proposal, **kwargs)
 runtime = time.time() - t_start
+
+print(vars(my_loglike_l0))
 
 # --------------------------------------------------------------------------
 # Diagnostics
