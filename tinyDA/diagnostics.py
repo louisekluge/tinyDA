@@ -224,7 +224,7 @@ def get_twolevel_inference_data(chain, attribute="qoi", variable="x0", burnin=0)
         and lists of tinyDA.Link instances.
     attribute : str, optional
         Which link attribute ('parameters', 'model_output', 'qoi')
-        to extract. The default is 'parameters'.
+        to extract. The default is 'qoi'.
     variable : str, optional
         Which variable of the posterior or qoi to marginalize over.
     burnin : int, optional
@@ -236,6 +236,23 @@ def get_twolevel_inference_data(chain, attribute="qoi", variable="x0", burnin=0)
         A dict of coarse, fine and promoted chains of the according attribute values
 
     """
+    # establish mapping between link attribute names and ArviZ group names
+
+    groups = {
+        "parameters": "posterior",
+        "model_output": "posterior_predictive",
+        "qoi": "qoi",
+        "stats": "sample_stats",
+        "posterior": "posterior",
+        "posterior_predictive": "posterior_predictive",
+        "sample_stats": "sample_stats",
+    }
+    if attribute not in groups:
+        raise ValueError(
+            "unknown attribute {!r}; expected 'parameters', 'model_output', "
+            "'qoi' or 'stats'".format(attribute)
+        )
+    group = groups[attribute]
 
     subchain_length = chain['subchain_length']
 
@@ -245,18 +262,9 @@ def get_twolevel_inference_data(chain, attribute="qoi", variable="x0", burnin=0)
     )
     inferencedata_fine = to_inference_data(chain, level="fine", burnin=burnin)
 
-    if attribute == "qoi":
-        values_coarse_promoted = inferencedata_coarse_promoted.qoi
-        values_fine = inferencedata_fine.qoi
-        values_coarse = inferencedata_coarse.qoi
-    if attribute == "posterior":
-        values_coarse_promoted = inferencedata_coarse_promoted.posterior
-        values_fine = inferencedata_fine.posterior
-        values_coarse = inferencedata_coarse.posterior
-    if attribute == "model_output":
-        values_coarse_promoted = inferencedata_coarse_promoted.model_output
-        values_fine = inferencedata_fine.model_output
-        values_coarse = inferencedata_coarse.model_output
+    values_coarse_promoted = getattr(inferencedata_coarse_promoted, group)
+    values_fine = getattr(inferencedata_fine, group)
+    values_coarse = getattr(inferencedata_coarse, group)
 
     # create the InferenceData instance.
     inference_arrays = {
