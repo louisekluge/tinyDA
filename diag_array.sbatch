@@ -1,13 +1,11 @@
 #!/bin/bash
 # Predator-prey sampler sweep: 9 configurations x 20 repetitions.
-#
-# Every task keeps its full chain, so the estimator-formulation work can be
-# done offline without resampling. Sizing is in the comment block below.
+# Every task keeps its full chain. Total output ~8 GB in tinyDA/results.
 #
 #   sbatch diag_array.sbatch
 #
 #SBATCH --job-name=mlda_diag
-#SBATCH --partition=single
+#SBATCH --partition=cpu_il
 #SBATCH --time=03:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -18,8 +16,7 @@
 
 set -euo pipefail
 
-REPO="$HOME/tinyDA_vr"            # <-- directory holding mlda_diagnostics.py
-OUTDIR="$(ws_find mlda_diag)/sweep"
+REPO="/home/ka/ka_scc/ka_br6867/tinyDA"     
 
 # One thread per task. numpy and scipy each default to grabbing every core on
 # the node; with 20 concurrent array tasks that oversubscribes it and every
@@ -29,48 +26,33 @@ export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
 module purge
-module load devel/python/3.11        # <-- adjust to the module you used
-source "$HOME/venv_tinyda/bin/activate"   # <-- adjust
+module load devel/python/3.12.3-gnu-14.2
+source ~/venvs/tinyda/bin/activate 
 
-mkdir -p logs "$OUTDIR"
 cd "$REPO"
+mkdir -p logs
 
 echo "task=$SLURM_ARRAY_TASK_ID host=$(hostname) started=$(date -Is)"
-python mlda_diagnostics.py --task-id "$SLURM_ARRAY_TASK_ID" --outdir "$OUTDIR"
+python mlda_diagnostics.py --task-id "$SLURM_ARRAY_TASK_ID"
 echo "finished=$(date -Is)"
 
-# ---------------------------------------------------------------------------
-# Sizing, from measured bytes-per-link (30-40 compressed) and a measured
-# cost of 1.75e-3 s per model-evaluation unit, where a unit weights each
-# level by how far it integrates (level 0 to t=3.5, level 1 to t=7.5,
-# level 2 to t=12, so roughly 0.29 : 0.63 : 1).
+# Output goes to the script's own results/ directory, which is the default.
 #
-# A three-level run stores N(2 + 2J + J^2) links, a two-level run N(2 + J),
-# single level N. Cost per top-level sample is J^2*0.29 + J*0.63 + 1.
+# Sizing, measured: 30-40 compressed bytes per link; a three-level run stores
+# N(2 + 2J + J^2) links, two-level N(2 + J), single level N.
 #
-#   config          J   iters    links     chain file    runtime (local)
-#   base           10   20000   2.44e6        98 MB          21 min
-#   nsub1           1   20000   1.00e5         4 MB           1 min
-#   nsub2           2   20000   2.00e5         8 MB           2 min
-#   nsub5           5   20000   7.40e5        30 MB           7 min
-#   nsub20         20    8000   3.54e6       142 MB          30 min
-#   fixed_nsub     10   20000   2.44e6        98 MB          21 min
-#   two_level_hi   10   20000   2.40e5        10 MB           4 min
-#   two_level_lo   10   20000   2.40e5        10 MB           2 min
-#   single          -   20000   2.00e4         1 MB           1 min
+#   base/fixed_nsub  J=10  20000   98 MB each    21 min
+#   nsub20           J=20   8000  142 MB         30 min
+#   nsub5            J= 5  20000   30 MB          7 min
+#   two_level_*      J=10  20000   10 MB each   2-4 min
+#   nsub1/nsub2/single          4-8 MB each      1-2 min
 #
-# Per repetition of the whole sweep: ~400 MB and ~89 min.
-# At 20 repetitions: ~8 GB and ~30 CPU-hours, doubling to ~60 on a cluster
-# core. The walltime above gives the longest config (nsub20) about 3x margin,
-# which is deliberate: the superlinear slowdown seen in earlier runs has never
-# been quantified, and the per-interval it/s column in each log will say
-# whether it is present long before the limit is reached.
+# ~400 MB and ~89 min per repetition of the whole sweep, so ~8 GB and ~30
+# CPU-hours at 20 repetitions, roughly doubling on a cluster core. The
+# walltime gives the longest config about 3x margin, because the superlinear
+# slowdown seen in earlier runs has never been quantified; the per-interval
+# it/s column in each log will show it long before the limit is reached.
 #
-# 8 GB belongs on a workspace, not in $HOME, and the workspace needs extending
-# before it expires or the chains go with it:  ws_extend mlda_diag 30
-#
-# To run without chain files -- summaries only, a few kB per task -- add
-# --no-chains. The summaries carry acceptance, ESS, pairing and the estimator
-# decomposition, so everything except comparing estimator *formulations* can
-# be done from them alone.
-# ---------------------------------------------------------------------------
+# --no-chains writes summaries only, a few kB per task. Those carry
+# acceptance, ESS, pairing and the estimator decomposition, so everything
+# except comparing estimator *formulations* can be done without the chains.
