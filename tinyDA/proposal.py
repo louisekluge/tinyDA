@@ -1508,25 +1508,19 @@ class MLDA(Proposal):
             level.
         """
 
-        # append the latest link on the current level matching the parameters.
+        # reversed() is a lazy iterator; the slice [::-1] copied the whole chain
+        
         self.chain.append(
-            next(filter(lambda link: link.parameters is parameters, self.chain[::-1]))
+            next(link for link in reversed(self.chain) if link.parameters is parameters)
         )
-
-        # add the acceptance bool to the history.
         self.accepted.append(accepted)
-
-        # the appended link is not local.
         self.is_local.append(False)
-
-        # perpetuate the correction downward in the model hierachy.
         if self.level > 0:
             self.proposal.align_chain(parameters, accepted)
 
     def _reset_chain(self):
-        # remove everything except the latest coarse link, if the coarse
-        # chain shouldn't be stored.
-        self.chain = [self.chain[-self.proposal_index]]
+        # after align_chain, the current coarse state is always the last link
+        self.chain = self.chain[-1:]
         if self.level > 0:
             self.proposal._reset_chain()
 
@@ -1549,7 +1543,8 @@ class MLDA(Proposal):
             proposal = self.proposal.make_proposal(self.subchain_length)
 
             # if there were no acceptances on the next-lower level, repeat previous sample.
-            if sum(self.proposal.accepted[-self.subchain_length :]) == 0:
+            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
+                # promoted link is the starting state: repeat previous sample
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
                 self.is_local.append(True)
@@ -1563,7 +1558,7 @@ class MLDA(Proposal):
                 alpha = self.proposal.get_acceptance(
                     proposal_link,
                     self.chain[-1],
-                    self.proposal.chain[-1], # this is the element forwarded by the subchain 
+                    self.proposal.promoted[-1], # this is the element forwarded by the subchain 
                     self.proposal.chain[-(self.subchain_length + 1)],
                 )
 

@@ -482,7 +482,7 @@ class DAChain:
         return alpha_2
 
     def _get_state_independent_acceptance(self, proposal_link_fine):
-        # compute the state-independent delayed acceptance probability.
+        # compute the state-independent delayed acceptance probability
         alpha_2 = np.exp(
             proposal_link_fine.posterior
             - self.chain_fine[-1].posterior
@@ -731,7 +731,8 @@ class MLDAChain:
             # draw a new proposal, given the previous parameters.
             proposal = self.proposal.make_proposal(self.subchain_length)
 
-            if sum(self.proposal.accepted[-self.subchain_length :]) == 0:
+            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
+                    # promoted link is the starting state: repeat previous sample
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
 
