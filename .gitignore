@@ -130,5 +130,7 @@ dmypy.json
 *.pkl
 qoi_run*.npz
 
-# Results 
+# local testing 
+qoi_run0.npz
+qoi_run1.npz
 results/
