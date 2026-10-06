@@ -727,24 +727,27 @@ class MLDAChain:
                 self.proposal._reset_chain()
 
             # draw a new proposal, given the previous parameters.
-            proposal = self.proposal.make_proposal(self.subchain_length)
+            self.proposal.make_proposal(self.subchain_length)
 
-            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
-                # promoted link is the starting state: repeat previous sample
+            promoted_link = self.proposal.promoted[-1]
+            start_link = self.proposal.chain[-(self.subchain_length + 1)]
+
+            # if nothing was accepted before the promoted step, repeat the previous sample.
+            if promoted_link is start_link:
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
 
             else:
-                # create a link from that proposal.
-                proposal_link = self.posterior.create_link(proposal)
+                # create a link from the promoted parameters.
+                proposal_link = self.posterior.create_link(promoted_link.parameters)
 
-                # compute the acceptance probability, which is unique to
-                # the proposal.
+                # compute the MLDA acceptance probability, using the promoted
+                # link (not the last link of the subchain) as the coarse proposal.
                 alpha = self.proposal.get_acceptance(
                     proposal_link,
                     self.chain[-1],
-                    self.proposal.promoted[-1],
-                    self.proposal.chain[-(self.subchain_length + 1)],
+                    promoted_link,
+                    start_link,
                 )
 
                 # perform Metropolis adjustment.
