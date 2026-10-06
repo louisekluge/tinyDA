@@ -1549,7 +1549,8 @@ class MLDA(Proposal):
             proposal = self.proposal.make_proposal(self.subchain_length)
 
             # if there were no acceptances on the next-lower level, repeat previous sample.
-            if sum(self.proposal.accepted[-self.subchain_length :]) == 0:
+            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
+                # promoted link is the starting state: repeat previous sample
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
                 self.is_local.append(True)

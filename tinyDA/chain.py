@@ -359,8 +359,9 @@ class DAChain:
             # run the coarse chain.
             self._sample_coarse()
 
-            # if nothing was accepted on the coarse, repeat the previous sample.
-            if sum(self.accepted_coarse[-self.subchain_length :]) == 0:
+            # if nothing new was accepted on the coarse, repeat the previous sample.
+            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
+                # promoted link is the starting state: repeat previous sample
                 self.chain_fine.append(self.chain_fine[-1])
                 self.accepted_fine.append(False)
                 self.chain_coarse.append(self.chain_coarse[-(self.subchain_length + 1)])
@@ -731,7 +732,8 @@ class MLDAChain:
             # draw a new proposal, given the previous parameters.
             proposal = self.proposal.make_proposal(self.subchain_length)
 
-            if sum(self.proposal.accepted[-self.subchain_length :]) == 0:
+            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
+                # promoted link is the starting state: repeat previous sample
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
 
