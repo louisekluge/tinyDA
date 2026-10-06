@@ -184,10 +184,19 @@ def test_mlda_promoted_lengths(randomize):
     n = 100
     chain = make_mlda([2, 3], randomize)
     chain.sample(n, progressbar=False)
-    # one promoted link per call from the next-finer level.
-    assert len(chain.proposal.promoted) == n * 3
-    assert len(chain.proposal.proposal.promoted) == n * 3 * 2
+    level1 = chain.proposal        # subchain length 3 (towards the finest level)
+    level0 = level1.proposal       # subchain length 2
 
+    # one promoted link per call from the next-finer level, i.e. per finer step.
+    assert len(level1.promoted) == n
+    assert len(level0.promoted) == n * 3
+
+    # local steps: level 1 runs 3 per fine iteration, level 0 runs 2 per level-1 step.
+    assert sum(level1.is_local) == n * 3
+    assert sum(level0.is_local) == n * 3 * 2
+
+    # so each level's promoted list is as long as the next-finer level's local chain.
+    assert len(level0.promoted) == sum(level1.is_local)
 
 # --------------------------------------------------------------------------------------------
 # 3. Regressions and validation.
