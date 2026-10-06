@@ -744,7 +744,7 @@ class MLDAChain:
                 alpha = self.proposal.get_acceptance(
                     proposal_link,
                     self.chain[-1],
-                    self.proposal.chain[-1],
+                    self.proposal.promoted[-1],
                     self.proposal.chain[-(self.subchain_length + 1)],
                 )
 
