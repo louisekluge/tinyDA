@@ -1526,7 +1526,8 @@ class MLDA(Proposal):
     def _reset_chain(self):
         # remove everything except the latest coarse link, if the coarse
         # chain shouldn't be stored.
-        self.chain = [self.chain[-self.proposal_index]]
+        self.chain = [self.chain[-1]]
+        self.promoted = []
         if self.level > 0:
             self.proposal._reset_chain()
 
