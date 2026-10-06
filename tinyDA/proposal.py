@@ -1562,8 +1562,8 @@ class MLDA(Proposal):
                 # compute the MLDA acceptance probability..
                 alpha = self.proposal.get_acceptance(
                     proposal_link,
-                    self.promoted[-1],
-                    self.proposal.chain[-1], # this is the element forwarded by the subchain 
+                    self.chain[-1],
+                    self.proposal.promoted[-1], # this is the element forwarded by the subchain 
                     self.proposal.chain[-(self.subchain_length + 1)],
                 )
 
