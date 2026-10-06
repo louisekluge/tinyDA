@@ -1515,13 +1515,15 @@ class MLDA(Proposal):
         )
         self.accepted.append(accepted)
         self.is_local.append(False)
-        
+
         if self.level > 0:
             self.proposal.align_chain(parameters, accepted)
 
     def _reset_chain(self):
-        # after align_chain, the current coarse state is always the last link
-        self.chain = self.chain[-1:]
+        # remove everything except the latest coarse link, if the coarse
+        # chain shouldn't be stored.
+        self.chain = [self.chain[-1]]
+        self.promoted = []
         if self.level > 0:
             self.proposal._reset_chain()
 
@@ -1541,26 +1543,27 @@ class MLDA(Proposal):
         # iterate through the subsamples.
         for i in range(subchain_length):
             # create a proposal from the next-lower level,
-            proposal = self.proposal.make_proposal(self.subchain_length)
+            self.proposal.make_proposal(self.subchain_length)
 
-            # if there were no acceptances on the next-lower level, repeat previous sample.
-            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
-                # promoted link is the starting state: repeat previous sample
+            promoted_below = self.proposal.promoted[-1]
+            start_below = self.proposal.chain[-(self.subchain_length + 1)]
+
+            # if nothing was accepted before the promoted step, repeat previous sample.
+            if promoted_below is start_below:
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
                 self.is_local.append(True)
 
-            # otherwise, evaluate the model.
             else:
-                # create a link from that proposal.
-                proposal_link = self.posterior.create_link(proposal)
+                # create a link from the promoted parameters.
+                proposal_link = self.posterior.create_link(promoted_below.parameters)
 
                 # compute the MLDA acceptance probability..
                 alpha = self.proposal.get_acceptance(
                     proposal_link,
                     self.chain[-1],
-                    self.proposal.promoted[-1], # this is the element forwarded by the subchain 
-                    self.proposal.chain[-(self.subchain_length + 1)],
+                    promoted_below,
+                    start_below,
                 )
 
                 # perform Metropolis adjustment.

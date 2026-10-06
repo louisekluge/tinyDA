@@ -359,27 +359,27 @@ class DAChain:
             # run the coarse chain.
             self._sample_coarse()
 
-            # if nothing was accepted on the coarse, repeat the previous sample.
-            if sum(self.accepted_coarse[-self.subchain_length :]) == 0:
+            # pick the coarse link to promote, and the link the subchain started from.
+            proposal_index = self._get_proposal_index()
+            promoted_link = self.chain_coarse[proposal_index]
+            start_link = self.chain_coarse[-(self.subchain_length + 1)]
+
+            self.promoted_coarse.append(promoted_link) # append promoted sample, wether accepted or not
+            self.subchain_lengths.append(proposal_index + self.subchain_length + 1)
+
+            # if the promoted link is still the starting link, nothing was accepted
+            # before the promoted step, so repeat the previous sample.
+            if promoted_link is start_link:
                 self.chain_fine.append(self.chain_fine[-1])
                 self.accepted_fine.append(False)
-                self.chain_coarse.append(self.chain_coarse[-(self.subchain_length + 1)])
-                self.promoted_coarse.append(
-                    self.chain_coarse[-(self.subchain_length + 1)]
-                )
+                self.chain_coarse.append(start_link)
                 self.accepted_coarse.append(False)
                 self.is_coarse.append(False)
 
-            else:
-                # when subsampling is complete, create a new fine link from the
-                # previous coarse link.
-                proposal_index = self._get_proposal_index()
+            else: # the promoted link has a different state than the last fine sample
                 proposal_link_fine = self.posterior_fine.create_link(
-                    self.chain_coarse[proposal_index].parameters
+                    promoted_link.parameters
                 )
-                self.promoted_coarse.append(self.chain_coarse[proposal_index])
-                # add effective subchain lenght to list
-                self.subchain_lengths.append(proposal_index + self.subchain_length + 1)
 
                 # compute the delayed acceptance probability.
                 if self.adaptive_error_model == "state-dependent":
@@ -392,15 +392,13 @@ class DAChain:
                 if np.random.random() < alpha_2:
                     self.chain_fine.append(proposal_link_fine)
                     self.accepted_fine.append(True)
-                    self.chain_coarse.append(self.promoted_coarse[-1])
+                    self.chain_coarse.append(promoted_link)
                     self.accepted_coarse.append(True)
                     self.is_coarse.append(False)
                 else:
                     self.chain_fine.append(self.chain_fine[-1])
                     self.accepted_fine.append(False)
-                    self.chain_coarse.append(
-                        self.chain_coarse[-(self.subchain_length + 1)]
-                    )
+                    self.chain_coarse.append(start_link)
                     self.accepted_coarse.append(False)
                     self.is_coarse.append(False)
 
@@ -650,6 +648,17 @@ class MLDAChain:
         # set wether to randomize subchain lengths
         self.randomize_subchain_length = randomize_subchain_length
 
+        # check wether chain initialisation settings are compatible
+        if self.randomize_subchain_length:
+            if any(length == 1 for length in subchain_lengths):
+                raise ValueError(
+                    "Randomize subchain length requires all subchain_lengths > 1."
+                )
+            if not self.store_coarse_chain:
+                raise ValueError(
+                    "Randomize subchain length requires storing the coarse chain."
+                )        
+
         # set the effective proposal to MLDA which runs on the next-coarser level.
         self.proposal = MLDA(
             posteriors[:-1],
@@ -729,24 +738,27 @@ class MLDAChain:
                 self.proposal._reset_chain()
 
             # draw a new proposal, given the previous parameters.
-            proposal = self.proposal.make_proposal(self.subchain_length)
+            self.proposal.make_proposal(self.subchain_length)
 
-            if self.proposal.promoted[-1] is self.proposal.chain[-(self.subchain_length + 1)]:
-                    # promoted link is the starting state: repeat previous sample
+            promoted_link = self.proposal.promoted[-1]
+            start_link = self.proposal.chain[-(self.subchain_length + 1)]
+
+            # if nothing was accepted before the promoted step, repeat the previous sample.
+            if promoted_link is start_link:
                 self.chain.append(self.chain[-1])
                 self.accepted.append(False)
 
             else:
-                # create a link from that proposal.
-                proposal_link = self.posterior.create_link(proposal)
+                # create a link from the promoted parameters.
+                proposal_link = self.posterior.create_link(promoted_link.parameters)
 
-                # compute the acceptance probability, which is unique to
-                # the proposal.
+                # compute the MLDA acceptance probability, using the promoted
+                # link (not the last link of the subchain) as the coarse proposal.
                 alpha = self.proposal.get_acceptance(
                     proposal_link,
                     self.chain[-1],
-                    self.proposal.promoted[-1], # adapted to reflect actual promoted sample
-                    self.proposal.chain[-(self.subchain_length + 1)],
+                    promoted_link,
+                    start_link,
                 )
 
                 # perform Metropolis adjustment.
