@@ -648,6 +648,17 @@ class MLDAChain:
         # set wether to randomize subchain lengths
         self.randomize_subchain_length = randomize_subchain_length
 
+        # check wether chain initialisation settings are compatible
+        if self.randomize_subchain_length:
+            if any(length == 1 for length in subchain_lengths):
+                raise ValueError(
+                    "Randomize subchain length requires all subchain_lengths > 1."
+                )
+            if not self.store_coarse_chain:
+                raise ValueError(
+                    "Randomize subchain length requires storing the coarse chain."
+                )        
+
         # set the effective proposal to MLDA which runs on the next-coarser level.
         self.proposal = MLDA(
             posteriors[:-1],
