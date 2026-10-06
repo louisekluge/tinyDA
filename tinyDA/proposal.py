@@ -1508,15 +1508,12 @@ class MLDA(Proposal):
             level.
         """
 
-        # append the latest link on the current level matching the parameters.
+        # reversed() is a lazy iterator; the slice [::-1] copied the whole chain
+        
         self.chain.append(
-            next(filter(lambda link: link.parameters is parameters, self.chain[::-1]))
+            next(link for link in reversed(self.chain) if link.parameters is parameters)
         )
-
-        # add the acceptance bool to the history.
         self.accepted.append(accepted)
-
-        # the appended link is not local.
         self.is_local.append(False)
 
         # perpetuate the correction downward in the model hierachy.
