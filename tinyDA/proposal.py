@@ -1515,6 +1515,7 @@ class MLDA(Proposal):
         )
         self.accepted.append(accepted)
         self.is_local.append(False)
+        
         if self.level > 0:
             self.proposal.align_chain(parameters, accepted)
 
