@@ -1,10 +1,19 @@
 """A sampling wrapper for variance-reduction experiments.
 
-alternative to tinyDA.sample() that forces every run through
+tinyDA.sample() dispatches on the number of posteriors: two go to DAChain,
+more go to MLDAChain. Those are separate implementations, so a two-level run
+and a three-level run are not the same sampler, and differences between them
+cannot be attributed to the level count alone. This forces every run through
 MLDAChain, including two-level ones, so the only thing that varies across a
 sweep is the configuration.
 
-It also keeps exact account of acceptances. 
+It also keeps what tinyDA's own result builder discards. Each chain and each
+nested MLDA proposal maintains a list of booleans saying whether each proposal
+was accepted; _get_result_mlda drops them, which leaves acceptance to be
+inferred from whether the parameter vector moved. That inference undercounts,
+because a step that accepts a proposal identical to the current state looks
+exactly like a rejection -- and with randomised promotion a subchain returning
+to its own starting point is common. The recorded flags are exact.
 
 Returns the same dict shape tinyDA.sample() returns for MLDA, so the existing
 extractors work on it unchanged, plus:
@@ -12,6 +21,15 @@ extractors work on it unchanged, plus:
     accepted_l{k}_{j}   bool array, aligned with chain_l{k}_{j}
     n_local_l{k}_{j}    how many of that level's links were generated locally
                         rather than copied down from a finer level
+
+Two levels can instead go through DAChain (two_level_chain="da"), which is
+what tinyDA.sample() does and the chain whose adaptive error model is the
+established one. The result then has the same keys as an MLDA run --
+chain_l1_0 is DAChain's fine chain, chain_l0_0 its locally generated coarse
+links, promoted_l0_0 its promoted list -- with "sampler": "DA", so everything
+downstream reads both alike. One difference: DAChain seeds the promoted list
+with the initial state, so fine chain and promoted list have the same length;
+MLDAChain's top level is one longer. Align by length, not by sampler.
 
 Single-chain sequential sampling only; Ray parallelism is not reproduced here.
 """
@@ -24,7 +42,7 @@ import time
 from itertools import compress
 
 import numpy as np
-from tinyDA.chain import MLDAChain
+from tinyDA.chain import DAChain, MLDAChain
 
 
 def sample_multilevel(
@@ -41,6 +59,7 @@ def sample_multilevel(
     block=None,
     report_every=None,
     callback=None,
+    two_level_chain="mlda",
 ):
     """Sample a hierarchy of two or more posteriors through MLDAChain.
 
@@ -67,6 +86,10 @@ def sample_multilevel(
         `result` the same dict this function returns. Use make_checkpointer()
         for the common case of writing partial output, so a job killed at the
         walltime leaves something behind instead of nothing.
+    two_level_chain : "mlda" or "da"
+        Which tinyDA chain runs a two-level hierarchy. Ignored for three or
+        more levels. DAChain.sample() is append-only like MLDAChain's, so
+        block sampling is exact for it too.
     """
     if not isinstance(posteriors, list) or len(posteriors) < 2:
         raise ValueError(
@@ -105,7 +128,7 @@ def sample_multilevel(
     if not progressbar:
         report_every = 0
     elif report_every is None:
-        report_every = max(1, iterations // 50)
+        report_every = max(1, iterations // 100)
 
     # Pick a block size that satisfies whichever of the two hooks are in use.
     wanted = [b for b in (block, report_every,
@@ -113,21 +136,44 @@ def sample_multilevel(
     step = min(wanted) if wanted else iterations
     step = max(1, min(step, iterations))
 
-    chains = [
-        MLDAChain(
-            posteriors,
-            copy.deepcopy(proposal),
-            subchain_lengths,
-            randomize_subchain_length,
-            initial_parameters[i],
-            adaptive_error_model,
-            store_coarse_chain,
-        )
-        for i in range(n_chains)
-    ]
+    if two_level_chain not in ("mlda", "da"):
+        raise ValueError("two_level_chain must be 'mlda' or 'da'")
+    use_da = n_levels == 2 and two_level_chain == "da"
 
-    collect = lambda: _collect(chains, n_levels, iterations, subchain_lengths,
-                               randomize_subchain_length, store_coarse_chain)
+    if use_da:
+        chains = [
+            DAChain(
+                posteriors[0],
+                posteriors[1],
+                copy.deepcopy(proposal),
+                subchain_lengths[0],
+                randomize_subchain_length,
+                initial_parameters[i],
+                adaptive_error_model,
+                store_coarse_chain,
+            )
+            for i in range(n_chains)
+        ]
+    else:
+        chains = [
+            MLDAChain(
+                posteriors,
+                copy.deepcopy(proposal),
+                subchain_lengths,
+                randomize_subchain_length,
+                initial_parameters[i],
+                adaptive_error_model,
+                store_coarse_chain,
+            )
+            for i in range(n_chains)
+        ]
+
+    if use_da:
+        collect = lambda: _collect_da(chains, iterations, subchain_lengths,
+                                      randomize_subchain_length, store_coarse_chain)
+    else:
+        collect = lambda: _collect(chains, n_levels, iterations, subchain_lengths,
+                                   randomize_subchain_length, store_coarse_chain)
 
     if progressbar:
         for i in range(n_chains):
@@ -166,6 +212,27 @@ def sample_multilevel(
     return collect()
 
 
+class _DAView:
+    """One level of a DAChain, shaped like an MLDA node for the tracker.
+
+    DAChain keeps both levels' bookkeeping on the chain object itself:
+    accepted_fine for the fine level; accepted_coarse with is_coarse marking
+    the locally generated coarse links (the rest are the copies appended
+    after each fine step, the DA counterpart of align_chain).
+    """
+
+    def __init__(self, chain, fine):
+        self._chain, self._fine = chain, fine
+
+    @property
+    def accepted(self):
+        return self._chain.accepted_fine if self._fine else self._chain.accepted_coarse
+
+    @property
+    def is_local(self):
+        return self._chain.is_coarse
+
+
 class _AcceptanceTracker:
     """Running acceptance per level, updated incrementally.
 
@@ -181,6 +248,10 @@ class _AcceptanceTracker:
     def __init__(self, chains, n_levels):
         self._nodes = []           # (level, chain index, node, has_is_local)
         for j, chain in enumerate(chains):
+            if isinstance(chain, DAChain):
+                self._nodes.append((1, j, _DAView(chain, fine=True), False))
+                self._nodes.append((0, j, _DAView(chain, fine=False), True))
+                continue
             self._nodes.append((n_levels - 1, j, chain, False))
             node = chain.proposal
             for level in reversed(range(n_levels - 1)):
@@ -321,6 +392,37 @@ def _collect(chains, n_levels, iterations, subchain_lengths,
             result[f"n_local_l{level}_{j}"] = int(np.sum(is_local))
         current = [node.proposal for node in current]
 
+    return result
+
+
+def _collect_da(chains, iterations, subchain_lengths,
+                randomize_subchain_length, store_coarse_chain):
+    """DAChain result in the MLDA layout, plus the acceptance flags."""
+    result = {
+        "sampler": "DA",
+        "n_chains": len(chains),
+        "iterations": iterations + 1,
+        "levels": 2,
+        "subchain_lengths": subchain_lengths,
+        "randomize_subchain_length": randomize_subchain_length,
+    }
+    for j, chain in enumerate(chains):
+        result[f"chain_l1_{j}"] = chain.chain_fine
+        result[f"accepted_l1_{j}"] = np.asarray(chain.accepted_fine, dtype=bool)
+        result[f"n_local_l1_{j}"] = len(chain.chain_fine)
+        if not store_coarse_chain:
+            result[f"chain_l0_{j}"] = None
+            result[f"promoted_l0_{j}"] = None
+            continue
+        is_local = list(chain.is_coarse)
+        if not (len(chain.chain_coarse) == len(is_local) == len(chain.accepted_coarse)):
+            raise RuntimeError(
+                "DAChain coarse bookkeeping lengths differ -- tinyDA has changed")
+        result[f"chain_l0_{j}"] = list(compress(chain.chain_coarse, is_local))
+        result[f"promoted_l0_{j}"] = chain.promoted_coarse
+        result[f"accepted_l0_{j}"] = np.asarray(
+            list(compress(chain.accepted_coarse, is_local)), dtype=bool)
+        result[f"n_local_l0_{j}"] = int(np.sum(is_local))
     return result
 
 
